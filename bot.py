@@ -1,15 +1,18 @@
 from discord.ext import commands
 import discord
 from mcstatus import MinecraftServer
+import sys
+import os
 
 bot = commands.Bot(command_prefix='.')
 client = discord.Client()
 TOKEN = 'tutoken'
 imagenLH = 'https://cdn.discordapp.com/icons/392285907195002880/6894fa91cf7c1d3559f260599d57c98f.png'
 server = MinecraftServer.lookup("ipserver")
-trusted = [userid]
-rol = 'rol'
-canal_welcome = channelid
+trusted = 'adminrolename'
+rol_conect = 653623812343988248
+rol_member = 654095858958336021
+canal_welcome = 653656543685771304
 
 print('Iniciando bot...')
 
@@ -28,7 +31,7 @@ async def ping(ctx):
 
 @bot.command()
 async def help(ctx):
-    comandos = ['.clear[admin_only]', '.encuesta', '.online', '.ping']
+    comandos = ['.clear[admin_only]', '.encuesta', '.member[admin_only]', '.online', '.ping', '.reload[admin_only]', '.removerole[admin_only]']
     msg = '\n'.join(comandos)
     embed = discord.Embed(
         title='Comandos disponibles:\n\n' + msg,
@@ -68,14 +71,28 @@ async def encuesta(ctx, mensaje='nada'):
 @bot.command()
 async def clear(ctx, cantidad=0):
     verificado = False
-    for id in trusted:
-        if id == ctx.author.id:
+    for a in ctx.author.roles:
+        if str(a) == trusted:
             verificado = True
     if verificado:
         await ctx.channel.purge(limit=cantidad)
         if cantidad == 0:
             await ctx.send('Especifica una cantidad')
 
+    else:
+        await ctx.send('No estas verificado para ejecutar este comando')
+
+
+@bot.command()
+async def reload(ctx):
+    verificado = False
+    for a in ctx.author.roles:
+        if str(a) == trusted:
+            verificado = True
+    if verificado:
+        await ctx.send('Reiniciando...')
+        python = sys.executable
+        os.execl(python, python, * sys.argv)
     else:
         await ctx.send('No estas verificado para ejecutar este comando')
 
@@ -109,9 +126,38 @@ async def online(ctx):
     await ctx.send(embed=embed)
 
 
+@bot.command(pass_context=True)
+async def member(ctx):
+    verificado = False
+    for a in ctx.author.roles:
+        if str(a) == trusted:
+            verificado = True
+    if verificado:
+        role = discord.utils.get(ctx.guild.roles, id=rol_member)
+        await ctx.message.mentions[0].add_roles(role)
+        await ctx.send('rol añadido a ' + ctx.message.mentions[0].mention)
+    else:
+        await ctx.send('No estas verificado para ejecutar este comando')
+
+
+@bot.command(pass_context=True)
+async def removerole(ctx):
+    verificado = False
+    for a in ctx.author.roles:
+        if str(a) == trusted:
+            verificado = True
+    if verificado:
+        role = discord.utils.get(ctx.guild.roles, id=rol_member)
+        await ctx.message.mentions[0].remove_roles(role)
+        await ctx.send('rol eliminado de ' + ctx.message.mentions[0].mention)
+    else:
+        await ctx.send('No estas verificado para ejecutar este comando')
+
+
+
 @bot.event
 async def on_member_join(member):
-    role = discord.utils.get(member.guild.roles, name=rol)
+    role = discord.utils.get(member.guild.roles, id=rol_conect)
     await member.add_roles(role)
 
     embed = discord.Embed(
