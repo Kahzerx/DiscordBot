@@ -1,190 +1,164 @@
-from discord.ext import commands
-import discord
-from mcstatus import MinecraftServer
-import sys
+#!usr/bin/python3
+
+from datetime import datetime, timedelta, date
 import os
+import asyncio
+import discord
+from discord.ext import commands
 
+TOKEN = 'token'
 bot = commands.Bot(command_prefix='.')
-client = discord.Client()
-TOKEN = 'tutoken'
-imagenLH = 'https://cdn.discordapp.com/icons/392285907195002880/6894fa91cf7c1d3559f260599d57c98f.png'
-server = MinecraftServer.lookup("ipserver")
-trusted = 'adminrolename'
-rol_conect = 653623812343988248
-rol_member = 654095858958336021
-canal_welcome = 653656543685771304
-
-print('Iniciando bot...')
-
 bot.remove_command('help')
+adminChatId = 706096301045055580
+adminRole = 608608975981903873
+channelId = 607849606532956161
+subRole = 739058520955289650
+
+fileName = 'subs.txt'
+subs = {}
+
+
+async def ripSub(userId):
+    await bot.get_channel(adminChatId).send(f'La sub de {bot.get_user(int(userId))} ha caducado')
+    await bot.get_guild(channelId).get_member(int(userId)).remove_roles(discord.utils.get(bot.get_guild(channelId).roles, id=subRole))
+    updateFileRemove(userId)
+    updateDict()
+
+
+async def timeLeft():
+    with open(fileName, 'r') as f:
+        list1 = f.read().split('\n')
+
+    for line in list1:
+        if line != '':
+            d1 = date(int(line.split()[1].split('-')[0]), int(line.split()[1].split('-')[1]), int(line.split()[1].split('-')[2]))
+            d2 = date(int(str(datetime.today()).split()[0].split('-')[0]), int(str(datetime.today()).split()[0].split('-')[1]), int(str(datetime.today()).split()[0].split('-')[2]))
+            if (d2 - d1).days * -1 <= 0:
+                await ripSub(line.split()[0])
+
+
+def updateFileAdd(userId, date1):
+    with open(fileName, 'a') as f:
+        f.write(f'\n{userId} {date1}')
+
+
+def updateFileRemove(userId):
+    updatedList = ''
+
+    with open(fileName, 'r') as f:
+        list1 = f.read().split('\n')
+
+    for line in list1:
+        if line != '':
+            if line.split()[0] != userId:
+                updatedList += line
+
+    with open(fileName, 'w') as f:
+        f.write(updatedList)
+
+
+def updateDict():
+    subs.clear()
+    with open(fileName, 'r') as f:
+        list1 = f.read().split('\n')
+
+    if list1 != ['']:
+        for line in list1:
+            if line != '':
+                subs[line.split()[0]] = line.split()[1]
 
 
 @bot.event
 async def on_ready():
     print(bot.user.name + ' iniciado :D')
-
-
-@bot.command()
-async def ping(ctx):
-    await ctx.send(f'pong {round(bot.latency * 1000)}ms')
-
-
-@bot.command()
-async def help(ctx):
-    comandos = ['.clear[admin_only]', '.encuesta', '.member[admin_only]', '.online', '.ping', '.reload[admin_only]', '.removerole[admin_only]']
-    msg = '\n'.join(comandos)
-    embed = discord.Embed(
-        title='Comandos disponibles:\n\n' + msg,
-        color=discord.Colour.blue()
-    )
-    embed.set_author(name='LastHope Unity', icon_url=imagenLH)
-    await ctx.send(embed=embed)
-
-
-@bot.command()
-async def encuesta(ctx, mensaje='nada'):
-    if mensaje == 'nada':
-        await ctx.send('Por favor, especifica un tema')
-    else:
-        subrayado = ''
-        msg = mensaje
-        for characters in msg:
-            subrayado += '▔'
-
-        if subrayado > '▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔':
-            subrayado = '▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔'
-
-        embed = discord.Embed(
-            title='Pregunta:\n' + msg + '\n' + subrayado,
-            color=discord.Colour.blue()
-        )
-
-        embed.set_author(name='LastHope Unity', icon_url=imagenLH)
-        embed.add_field(name='opcion 1', value='1\u20e3 Si', inline=True)
-        embed.add_field(name='opcion 2', value='2\u20e3 No', inline=True)
-
-        sent = await ctx.send(embed=embed)
-        await sent.add_reaction('1\u20e3')
-        await sent.add_reaction('2\u20e3')
-
-
-@bot.command()
-async def clear(ctx, cantidad=0):
-    verificado = False
-    for a in ctx.author.roles:
-        if str(a) == trusted:
-            verificado = True
-    if verificado:
-        await ctx.channel.purge(limit=cantidad)
-        if cantidad == 0:
-            await ctx.send('Especifica una cantidad')
+    if not os.path.isfile(fileName):
+        with open(fileName, 'w') as f:
+            f.write('')
 
     else:
-        await ctx.send('No estas verificado para ejecutar este comando')
+        updateDict()
 
 
 @bot.command()
-async def reload(ctx):
-    verificado = False
-    for a in ctx.author.roles:
-        if str(a) == trusted:
-            verificado = True
-    if verificado:
-        await ctx.send('Reiniciando...')
-        python = sys.executable
-        os.execl(python, python, * sys.argv)
+async def add(ctx, user='', subTime=''):
+    if str(adminRole) in (', '.join(str(role.id) for role in ctx.author.roles)):
+        if user == '' or subTime == '' or len(ctx.message.content.split(' ')) > 3:
+            await ctx.send('Uso: .add @mencion meses\nej: .add @Kahzerx 1', delete_after=5)
+
+        else:
+            try:
+                if not isinstance(int(subTime), int):
+                    await ctx.send('Introduce un número ;-;', delete_after=3)
+
+                else:
+                    new_date = str(datetime.today() + timedelta(int(subTime) * 30)).split(' ')[0]
+                    if user[3:-1] in subs:
+                        await ctx.send('Ya tenía el rol, sobreescribiendo fecha...', delete_after=3)
+                        await bot.get_channel(adminChatId).send(
+                            f'Fecha de {bot.get_user(int(user[3:-1]))} sobreescrita, su rol caduca el {new_date}')
+                        updateFileRemove(user[3:-1])
+                    else:
+                        await ctx.message.mentions[0].add_roles(discord.utils.get(ctx.guild.roles, id=subRole))
+                        await ctx.send('Rol añadido', delete_after=3)
+                        await bot.get_channel(adminChatId).send(
+                            f'{bot.get_user(int(user[3:-1]))} añadido, su rol caduca el {new_date}')
+                    updateFileAdd(user[3:-1], new_date)
+                    updateDict()
+
+            except:
+                await ctx.send('No ha sido posible asignar el rol, revisa el comando :(', delete_after=3)
+
     else:
-        await ctx.send('No estas verificado para ejecutar este comando')
+        await ctx.send(f'{ctx.author.mention} necesitas ser admin :P', delete_after=2)
+
+    await ctx.message.delete()
 
 
 @bot.command()
-async def online(ctx):
-    status = server.status()
-    query = server.query()
-    msg = '\n'.join(query.players.names)
-    if status.players.online == 0:
-        embed = discord.Embed(
-            title='No hay jugadores conectados :( ',
-            color=discord.Colour.blue()
-        )
-        embed.set_author(name='LastHope Unity', icon_url=imagenLH)
-    elif status.players.online == 1:
-        embed = discord.Embed(
-            title='Jugador conectado:',
-            description=msg,
-            color=discord.Colour.blue()
-        )
-        embed.set_author(name='LastHope Unity', icon_url=imagenLH)
-    elif status.players.online > 1:
-        embed = discord.Embed(
-            title='Jugadores conectados:',
-            description=msg,
-            color=discord.Colour.blue()
-        )
-        embed.set_author(name='LastHope Unity', icon_url=imagenLH)
+async def remove(ctx, user=''):
+    if str(adminRole) in (', '.join(str(role.id) for role in ctx.author.roles)):
+        if user == '' or len(ctx.message.content.split(' ')) > 3:
+            await ctx.send('Uso: .remove @mencion\nej: .remove @Kahzerx', delete_after=5)
 
-    await ctx.send(embed=embed)
+        else:
+            try:
+                if user[3:-1] in subs:
+                    updateFileRemove(user[3:-1])
+                    await ctx.message.mentions[0].remove_roles(discord.utils.get(ctx.guild.roles, id=subRole))
+                    await ctx.send('Rol eliminado', delete_after=3)
+                    await bot.get_channel(adminChatId).send(f'{bot.get_user(int(user[3:-1]))} eliminado')
+                    updateDict()
 
+                else:
+                    await ctx.send('No tenía el rol', delete_after=3)
 
-@bot.command(pass_context=True)
-async def member(ctx):
-    verificado = False
-    for a in ctx.author.roles:
-        if str(a) == trusted:
-            verificado = True
-    if verificado:
-        role = discord.utils.get(ctx.guild.roles, id=rol_member)
-        await ctx.message.mentions[0].add_roles(role)
-        await ctx.send('rol añadido a ' + ctx.message.mentions[0].mention)
+            except:
+                await ctx.send('No ha sido posible eliminar el rol, revisa el comando :(', delete_after=3)
+
     else:
-        await ctx.send('No estas verificado para ejecutar este comando')
+        await ctx.send(f'{ctx.author.mention} necesitas ser admin :P', delete_after=2)
 
-
-@bot.command(pass_context=True)
-async def removerole(ctx):
-    verificado = False
-    for a in ctx.author.roles:
-        if str(a) == trusted:
-            verificado = True
-    if verificado:
-        role = discord.utils.get(ctx.guild.roles, id=rol_member)
-        await ctx.message.mentions[0].remove_roles(role)
-        await ctx.send('rol eliminado de ' + ctx.message.mentions[0].mention)
-    else:
-        await ctx.send('No estas verificado para ejecutar este comando')
-
+    await ctx.message.delete()
 
 
 @bot.event
-async def on_member_join(member):
-    role = discord.utils.get(member.guild.roles, id=rol_conect)
-    await member.add_roles(role)
+async def on_message(ctx):
 
-    embed = discord.Embed(
-        title='¿Quieres formar parte de LastHope?',
-        description='Si te interesa formar parte de LastHope sigue estos pasos!',
-        color=discord.Colour.blue()
-    )
-    embed.set_author(name='LastHope Unity', icon_url=imagenLH)
-    embed.add_field(name='Entrevista',
-                    value='Si quieres unirte al servidor de LastHope, tienes que comunicarte con un administrador y '
-                          'preguntale cuando te podría hacer una entrevista para poder formar parte de LastHope',
-                    inline=True)
-    embed.add_field(name='Recomendación',
-                    value='Pasate algunas veces de la semana para hablar con los miembros y que ellos tengan una '
-                          'buena perspectiva sobre tí',
-                    inline=True)
-    embed.add_field(name='Requisitos',
-                    value='Tener minecraft premium, tener twitter, tener microfono, pasarte de vez en cuando a '
-                          'charlar con los otros miembros (En el caso de que entres al servidor)',
-                    inline=True)
+    if ctx.author == bot.user:
+        return
 
-    await member.send(embed=embed)
-
-    canal = bot.get_channel(canal_welcome)
-    await canal.send('¡Bienvenido a LastHope ' + member.mention + ' esperemos que sea de tu agrado! **Revisa tus '
-                                                                  'mensajes privados para más información.** '
-                                                                  ':mailbox_with_mail: ')
+    await bot.process_commands(ctx)
 
 
+async def checkDate():
+    await bot.wait_until_ready()
+    await asyncio.sleep(2)
+    while not bot.is_closed():
+        print(subs)
+        await timeLeft()
+        await asyncio.sleep(10)
+
+
+bot.loop.create_task(checkDate())
 bot.run(TOKEN)
+
